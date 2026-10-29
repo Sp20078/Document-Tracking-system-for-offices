@@ -16,15 +16,23 @@ from flask import current_app, g
 # ---------------------------------------------------------------------------
 # Connections
 # ---------------------------------------------------------------------------
+def _config_value(cfg, name):
+    """Read a setting from a Flask config object or a plain settings object."""
+    try:
+        return cfg[name]
+    except (TypeError, KeyError):
+        return getattr(cfg, name)
+
+
 def create_connection(config=None, database=None):
     """Open a new MySQL connection (used by this app and by the seed scripts)."""
     cfg = config or current_app.config
     return mysql.connector.connect(
-        host=cfg["MYSQL_HOST"],
-        port=cfg["MYSQL_PORT"],
-        user=cfg["MYSQL_USER"],
-        password=cfg["MYSQL_PASSWORD"],
-        database=database if database is not None else cfg["MYSQL_DATABASE"],
+        host=_config_value(cfg, "MYSQL_HOST"),
+        port=_config_value(cfg, "MYSQL_PORT"),
+        user=_config_value(cfg, "MYSQL_USER"),
+        password=_config_value(cfg, "MYSQL_PASSWORD"),
+        database=database if database is not None else _config_value(cfg, "MYSQL_DATABASE"),
         charset="utf8mb4",
         autocommit=False,
         use_pure=True,

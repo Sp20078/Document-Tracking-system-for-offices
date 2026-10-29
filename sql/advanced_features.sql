@@ -211,7 +211,7 @@ BEGIN
     (document_number, title, description, document_type_id, submitted_by,
      current_department_id, assigned_to, submission_date, due_date, priority, status)
   VALUES
-    (CONCAT('TMP-', UUID()), p_title, p_description, p_document_type_id, p_submitted_by,
+    (CONCAT('TMP-', LEFT(REPLACE(UUID(), '-', ''), 20)), p_title, p_description, p_document_type_id, p_submitted_by,
      p_department_id, p_assigned_to, p_submission_date, p_due_date,
      p_priority, 'Submitted');
 

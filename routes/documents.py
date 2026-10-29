@@ -260,7 +260,8 @@ def register():
                         (document_number, title, description, document_type_id,
                          submitted_by, current_department_id, assigned_to,
                          submission_date, due_date, priority, status)
-                    VALUES (CONCAT('TMP-', UUID()), %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Submitted')
+                    VALUES (CONCAT('TMP-', LEFT(REPLACE(UUID(), '-', ''), 20)),
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Submitted')
                     """,
                     (form["title"], form["description"] or None,
                      int(form["document_type_id"]), user["user_id"],
