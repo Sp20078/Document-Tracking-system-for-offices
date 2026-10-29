@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, priority_badge, initials, document_icon %}
+{% set active_page = 'dashboard' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p>Overview of office documents, assignments and approvals · {{ today }}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft" href="{{ url_for('tracking.index') }}">
+      <i class="bi bi-clock-history"></i> Activity log
+    </a>
+    {% if current_user.role in ['admin', 'records_officer'] %}
+      <a class="btn btn-primary" href="{{ url_for('documents.register') }}">
+        <i class="bi bi-plus-lg"></i> Register Document
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Total documents</span>
+      <span class="icon-tile"><i class="bi bi-files"></i></span>
+    </div>
+    <div class="stat-value">{{ counts.total }}</div>
+    <div class="stat-foot"><i class="bi bi-archive"></i> {{ counts.closed }} closed</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Pending</span>
+      <span class="icon-tile yellow"><i class="bi bi-hourglass-split"></i></span>
+    </div>
+    <div class="stat-value">{{ counts.pending }}</div>
+    <div class="stat-foot">{{ counts.submitted }} newly submitted</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">In progress</span>
+      <span class="icon-tile"><i class="bi bi-arrow-repeat"></i></span>
+    </div>
+    <div class="stat-value">{{ counts.in_progress }}</div>
+    <div class="stat-foot"><i class="bi bi-send"></i> includes forwarded</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Approved</span>
+      <span class="icon-tile green"><i class="bi bi-check2-circle"></i></span>
+    </div>
+    <div class="stat-value">{{ counts.approved }}</div>
+    <div class="stat-foot"><i class="bi bi-shield-check"></i> cleared for closure</div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-top">
+      <span class="stat-label">Rejected</span>
+      <span class="icon-tile red"><i class="bi bi-x-circle"></i></span>
+    </div>
+    <div class="stat-value">{{ counts.rejected }}</div>
+    <div class="stat-foot"><i class="bi bi-exclamation-triangle"></i> {{ counts.overdue }} overdue</div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-8">
+    <div class="panel h-100">
+      <div class="panel-head">
+        <div>
+          <h2>Recently updated documents</h2>
+          <p class="sub">The latest movement across the office</p>
+        </div>
+        <a class="btn btn-soft btn-sm" href="{{ url_for('documents.index') }}">View all</a>
+      </div>
+      <div class="panel-body tight">
+        {% if recent_documents %}
+          <div class="table-wrap">
+            <table class="table-modern">
+              <thead>
+                <tr>
+                  <th>Document</th>
+                  <th>Department</th>
+                  <th>Assigned to</th>
+                  <th>Submitted</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for doc in recent_documents %}
+                  <tr>
+                    <td>
+                      <div class="doc-cell">
+                        {{ document_icon(doc.type_name) }}
+                        <div>
+                          <a class="row-link" href="{{ url_for('documents.detail', document_id=doc.document_id) }}">{{ doc.title }}</a>
+                          <div class="doc-meta">
+                            <span class="mono">{{ doc.document_number }}</span>
+                            <span class="sep">·</span><span>{{ doc.type_name }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>{{ doc.department_name or '—' }}</td>
+                    <td>
+                      {% if doc.assignee_name %}
+                        <div class="user-inline">
+                          <span class="avatar avatar-sm">{{ initials(doc.assignee_name) }}</span>
+                          <span>{{ doc.assignee_name }}</span>
+                        </div>
+                      {% else %}<span class="muted">Unassigned</span>{% endif %}
+                    </td>
+                    <td class="muted">{{ doc.submission_date|nice_date }}</td>
+                    <td>{{ status_badge(doc.status) }}</td>
+                    <td class="text-end">
+                      <a class="btn btn-soft btn-icon" href="{{ url_for('documents.detail', document_id=doc.document_id) }}" aria-label="View document">
+                        <i class="bi bi-chevron-right"></i>
+                      </a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+            <h4>No documents yet</h4>
+            <p>Register the first document to start tracking it through the office workflow.</p>
+            {% if current_user.role in ['admin', 'records_officer'] %}
+              <a class="btn btn-primary" href="{{ url_for('documents.register') }}">
+                <i class="bi bi-file-earmark-plus"></i> Register a document
+              </a>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4 d-grid gap-3">
+    {% if current_user.role in ['admin', 'manager'] %}
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Awaiting my approval</h2>
+            <p class="sub">{{ sidebar.approvals }} pending decision{{ '' if sidebar.approvals == 1 else 's' }}</p>
+          </div>
+          <a class="btn btn-soft btn-sm" href="{{ url_for('approvals.index') }}">Open</a>
+        </div>
+        <div class="panel-body">
+          {% if pending_approvals %}
+            <div class="d-grid gap-2">
+              {% for item in pending_approvals %}
+                <a class="task-card panel p-3 text-decoration-none hover-lift" href="{{ url_for('documents.detail', document_id=item.document_id) }}">
+                  <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div>
+                      <div class="doc-title">{{ item.title }}</div>
+                      <div class="doc-meta"><span class="mono">{{ item.document_number }}</span></div>
+                    </div>
+                    {{ status_badge(item.status) }}
+                  </div>
+                  <div class="doc-meta mt-2">{{ item.department_name or 'No department' }} · submitted {{ item.submission_date|nice_date }}</div>
+                </a>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-center py-3">
+              <div class="empty-icon mx-auto mb-2" style="width:46px;height:46px;font-size:18px;"><i class="bi bi-patch-check"></i></div>
+              <div class="doc-title">You're all caught up</div>
+              <div class="doc-meta">No documents are waiting for your decision.</div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Department load</h2>
+          <p class="sub">Open documents per department</p>
+        </div>
+      </div>
+      <div class="panel-body">
+        {% if department_load %}
+          {% for row in department_load %}
+            <div class="bar-row">
+              <span class="bar-label" title="{{ row.department_name }}">{{ row.department_name }}</span>
+              <span class="bar-track"><span class="progress-dark"><span style="width: {{ (row.total / max_load * 100)|round(0, 'floor') }}%"></span></span></span>
+              <span class="bar-value">{{ row.total }}</span>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-secondary small mb-0">No department data yet.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="panel mt-3">
+  <div class="panel-head">
+    <div>
+      <h2>Recent tracking activity</h2>
+      <p class="sub">Every workflow action is recorded permanently</p>
+    </div>
+    <a class="btn btn-soft btn-sm" href="{{ url_for('tracking.index') }}">Full history</a>
+  </div>
+  <div class="panel-body tight">
+    {% if recent_activity %}
+      <div class="activity-feed">
+        {% for event in recent_activity %}
+          <div class="activity-item">
+            <span class="activity-dot"><i class="bi bi-activity"></i></span>
+            <div class="flex-grow-1">
+              <div class="activity-title">
+                <a href="{{ url_for('documents.detail', document_id=event.document_id) }}">{{ event.document_number }}</a>
+                · <strong>{{ event.action }}</strong>
+                {% if event.from_department and event.to_department and event.from_department != event.to_department %}
+                  <span class="text-secondary">({{ event.from_department }} → {{ event.to_department }})</span>
+                {% endif %}
+              </div>
+              <div class="activity-meta">
+                {{ event.actor_name or 'System' }} · {{ event.action_timestamp|nice_date }}
+                {% if event.remarks %} · {{ event.remarks }}{% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state py-4">
+        <h4>No activity recorded yet</h4>
+        <p>Tracking events appear here as soon as documents move through the workflow.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

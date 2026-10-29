@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Environment secrets
+.env
+
+# Uploaded documents (never commit real office files)
+uploads/*
+!uploads/.gitkeep
+
+# Test / tooling artefacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Freebuff / agent local state
+.freebuff/
+.opencode/

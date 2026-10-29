@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "_macros.html" import initials %}
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>User Management</h1>
+    <p>Create accounts, assign roles and departments, and deactivate staff</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newUserModal">
+      <i class="bi bi-person-plus"></i> New user
+    </button>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <div>
+      <h2>Office users</h2>
+      <p class="sub">{{ users|length }} account{{ '' if users|length == 1 else 's' }} · passwords are stored as hashes and never displayed</p>
+    </div>
+  </div>
+  <div class="panel-body tight">
+    <div class="table-wrap">
+      <table class="table-modern">
+        <thead>
+          <tr><th>User</th><th>Role</th><th>Department</th><th>Status</th><th>Created</th><th class="text-end">Actions</th></tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td>
+                <div class="user-inline">
+                  <span class="avatar avatar-sm">{{ initials(user.full_name) }}</span>
+                  <div>
+                    <div class="doc-title">{{ user.full_name }}{% if user.user_id == current_user.user_id %} <span class="badge-soft-blue">You</span>{% endif %}</div>
+                    <div class="doc-meta">{{ user.email }}</div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="badge-soft-{{ {'admin':'purple','records_officer':'blue','employee':'gray','manager':'green'}.get(user.role, 'gray') }}">
+                  {{ roles[user.role] }}
+                </span>
+              </td>
+              <td>{{ user.department_name or '—' }}</td>
+              <td>
+                {% if user.is_active %}<span class="badge-soft-green"><span class="badge-dot"></span> Active</span>
+                {% else %}<span class="badge-soft-red"><span class="badge-dot"></span> Inactive</span>{% endif %}
+              </td>
+              <td class="muted">{{ user.created_at|nice_date }}</td>
+              <td class="text-end">
+                <div class="d-inline-flex gap-2">
+                  <a class="btn btn-soft btn-sm" href="{{ url_for('admin.edit_user', user_id=user.user_id) }}"><i class="bi bi-pencil"></i> Edit</a>
+                  {% if user.user_id != current_user.user_id %}
+                    <form method="post" action="{{ url_for('admin.toggle_user', user_id=user.user_id) }}"
+                          data-confirm="{{ 'Deactivate' if user.is_active else 'Reactivate' }} {{ user.full_name }}?" data-loading>
+                      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-sm {{ 'btn-danger-soft' if user.is_active else 'btn-success-soft' }}" type="submit">
+                        {{ 'Deactivate' if user.is_active else 'Activate' }}
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="newUserModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="{{ url_for('admin.create_user') }}" data-loading>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Create a new user</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body d-grid gap-3">
+        <div>
+          <label class="form-label" for="full_name">Full name <span class="req">*</span></label>
+          <input class="form-control" id="full_name" name="full_name" required maxlength="120">
+        </div>
+        <div>
+          <label class="form-label" for="email">Email <span class="req">*</span></label>
+          <input class="form-control" id="email" name="email" type="email" required maxlength="190">
+        </div>
+        <div>
+          <label class="form-label" for="password">Temporary password <span class="req">*</span></label>
+          <input class="form-control" id="password" name="password" type="password" minlength="8" required>
+          <div class="form-text">Minimum 8 characters. Stored as a Werkzeug hash.</div>
+        </div>
+        <div class="row g-3">
+          <div class="col-sm-6">
+            <label class="form-label" for="role">Role <span class="req">*</span></label>
+            <select class="form-select" id="role" name="role" required>
+              {% for key, label in roles.items() %}
+                <option value="{{ key }}" {{ 'selected' if key == 'employee' }}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-6">
+            <label class="form-label" for="department_id">Department</label>
+            <select class="form-select" id="department_id" name="department_id">
+              <option value="">No department</option>
+              {% for d in departments %}
+                <option value="{{ d.department_id }}">{{ d.department_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-person-plus"></i> Create user</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

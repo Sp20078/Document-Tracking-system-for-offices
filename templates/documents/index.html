@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, priority_badge, initials, document_icon %}
+{% block title %}All Documents{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>All Documents</h1>
+    <p>Search, filter and open any document you are allowed to see</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft" href="{{ url_for('reports.index') if current_user.role in ['admin','records_officer'] else url_for('tracking.index') }}">
+      <i class="bi bi-graph-up"></i> Reports
+    </a>
+    {% if current_user.role in ['admin', 'records_officer'] %}
+      <a class="btn btn-primary" href="{{ url_for('documents.register') }}">
+        <i class="bi bi-plus-lg"></i> Register Document
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel filter-card">
+  <div class="panel-body">
+    <form method="get" action="{{ url_for('documents.index') }}" class="filter-bar" id="filterForm">
+      <div class="filter-search">
+        <label class="form-label">Search</label>
+        <div class="input-icon">
+          <i class="bi bi-search"></i>
+          <input class="form-control" type="search" name="q" value="{{ filters.q }}"
+                 placeholder="Document number or title…">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Status</label>
+        <select class="form-select" name="status" data-autosubmit>
+          <option value="">All statuses</option>
+          {% for s in statuses %}
+            <option value="{{ s }}" {{ 'selected' if filters.status == s }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Department</label>
+        <select class="form-select" name="department_id" data-autosubmit>
+          <option value="">All departments</option>
+          {% for d in departments %}
+            <option value="{{ d.department_id }}" {{ 'selected' if filters.department_id == d.department_id }}>{{ d.department_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Type</label>
+        <select class="form-select" name="document_type_id" data-autosubmit>
+          <option value="">All types</option>
+          {% for t in document_types %}
+            <option value="{{ t.document_type_id }}" {{ 'selected' if filters.document_type_id == t.document_type_id }}>{{ t.type_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Priority</label>
+        <select class="form-select" name="priority" data-autosubmit>
+          <option value="">Any priority</option>
+          {% for p in priorities %}
+            <option value="{{ p }}" {{ 'selected' if filters.priority == p }}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-funnel"></i> Apply</button>
+        <a class="btn btn-soft btn-icon" href="{{ url_for('documents.index') }}" title="Reset filters"><i class="bi bi-arrow-counterclockwise"></i></a>
+      </div>
+    </form>
+
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-3" style="border-top: 1px solid var(--border-soft);">
+      <span class="eyebrow">Dates</span>
+      <form method="get" action="{{ url_for('documents.index') }}" class="d-flex flex-wrap gap-2 align-items-center">
+        <input type="hidden" name="q" value="{{ filters.q }}">
+        <input type="hidden" name="status" value="{{ filters.status }}">
+        <input type="hidden" name="department_id" value="{{ filters.department_id or '' }}">
+        <input type="hidden" name="document_type_id" value="{{ filters.document_type_id or '' }}">
+        <input type="hidden" name="priority" value="{{ filters.priority }}">
+        <input class="form-control" style="max-width: 150px; min-height: 34px;" type="date" name="date_from" value="{{ filters.date_from }}" aria-label="Submitted from">
+        <span class="text-secondary small">to</span>
+        <input class="form-control" style="max-width: 150px; min-height: 34px;" type="date" name="date_to" value="{{ filters.date_to }}" aria-label="Submitted to">
+        <label class="form-check d-flex align-items-center gap-2 mb-0 ms-2">
+          <input class="form-check-input mt-0" type="checkbox" name="archived" value="1" {{ 'checked' if filters.archived }}>
+          <span class="form-check-label small">Archived only</span>
+        </label>
+        <button class="btn btn-soft btn-sm" type="submit">Filter dates</button>
+      </form>
+      <span class="ms-auto text-secondary small">{{ total }} document{{ '' if total == 1 else 's' }} found</span>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body tight">
+    {% if documents %}
+      <div class="table-wrap">
+        <table class="table-modern">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Department</th>
+              <th>Assigned to</th>
+              <th>Submitted</th>
+              <th>Due</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for doc in documents %}
+              <tr>
+                <td>
+                  <div class="doc-cell">
+                    {{ document_icon(doc.type_name) }}
+                    <div>
+                      <a class="row-link" href="{{ url_for('documents.detail', document_id=doc.document_id) }}">{{ doc.title }}</a>
+                      <div class="doc-meta">
+                        <span class="mono">{{ doc.document_number }}</span>
+                        <span class="sep">·</span><span>{{ doc.type_name }}</span>
+                        {% if doc.archived %}<span class="badge-soft-dark">Archived</span>{% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ doc.department_name or '—' }}</td>
+                <td>
+                  {% if doc.assignee_name %}
+                    <div class="user-inline">
+                      <span class="avatar avatar-sm">{{ initials(doc.assignee_name) }}</span>
+                      <span>{{ doc.assignee_name }}</span>
+                    </div>
+                  {% else %}<span class="muted">Unassigned</span>{% endif %}
+                </td>
+                <td class="muted">{{ doc.submission_date|nice_date }}</td>
+                <td class="muted">
+                  {% if doc.due_date %}
+                    {{ doc.due_date|nice_date }}
+                  {% else %}—{% endif %}
+                </td>
+                <td>{{ priority_badge(doc.priority) }}</td>
+                <td>{{ status_badge(doc.status) }}</td>
+                <td class="text-end">
+                  <a class="btn btn-soft btn-sm" href="{{ url_for('documents.detail', document_id=doc.document_id) }}">
+                    View <i class="bi bi-chevron-right"></i>
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination-bar">
+        <span class="text-secondary small">Page {{ page }} of {{ pages }}</span>
+        <div class="pager">
+          <a class="pg {{ 'disabled' if page <= 1 }}" href="{{ page_link(page - 1) if page > 1 else '#' }}"><i class="bi bi-chevron-left"></i></a>
+          {% set start = [1, page - 2]|max %}
+          {% set end = [pages, start + 4]|min %}
+          {% for p in range(start, end + 1) %}
+            <a class="pg {{ 'active' if p == page }}" href="{{ page_link(p) }}">{{ p }}</a>
+          {% endfor %}
+          <a class="pg {{ 'disabled' if page >= pages }}" href="{{ page_link(page + 1) if page < pages else '#' }}"><i class="bi bi-chevron-right"></i></a>
+        </div>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="bi bi-search"></i></div>
+        <h4>No documents match your search</h4>
+        <p>Try a different document number, clear the filters, or register a new document.</p>
+        <a class="btn btn-soft" href="{{ url_for('documents.index') }}">Clear filters</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

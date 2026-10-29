@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Reports</h1>
+    <p>Live numbers from MySQL · views, pending days and overdue tracking</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft" href="{{ url_for('reports.export_csv') }}"><i class="bi bi-filetype-csv"></i> Export CSV</a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-top"><span class="stat-label">All documents</span><span class="icon-tile"><i class="bi bi-files"></i></span></div>
+    <div class="stat-value">{{ totals.total }}</div>
+    <div class="stat-foot">{{ totals.archived }} archived</div>
+  </div>
+  {% for row in status_counts %}
+    {% if loop.index <= 4 %}
+      <div class="stat-card">
+        <div class="stat-top">
+          <span class="stat-label">{{ row.status }}</span>
+          <span class="icon-tile {{ {'Pending':'yellow','Approved':'green','Rejected':'red','In Progress':'blue'}.get(row.status, 'gray') }}">
+            <i class="bi bi-{{ {'Submitted':'inbox','Pending':'hourglass-split','In Progress':'arrow-repeat','Forwarded':'send','Approved':'check2-circle','Rejected':'x-circle','Closed':'archive'}.get(row.status, 'circle') }}"></i>
+          </span>
+        </div>
+        <div class="stat-value">{{ row.total }}</div>
+        <div class="stat-foot">documents in {{ row.status|lower }}</div>
+      </div>
+    {% endif %}
+  {% endfor %}
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-5">
+    <div class="panel h-100">
+      <div class="panel-head"><h2>Documents by status</h2></div>
+      <div class="panel-body">
+        {% set max_status = (status_counts|max(attribute='total')).total if status_counts else 1 %}
+        {% for row in status_counts %}
+          <div class="bar-row">
+            <span class="bar-label">{{ row.status }}</span>
+            <span class="bar-track">
+              <span class="progress-dark {{ 'green' if row.status == 'Approved' }} {{ 'yellow' if row.status in ['Pending','Forwarded'] }}">
+                <span style="width: {{ ((row.total / max_status) * 100)|round(0, 'floor') if max_status else 0 }}%"></span>
+              </span>
+            </span>
+            <span class="bar-value">{{ row.total }}</span>
+          </div>
+        {% else %}
+          <p class="text-secondary small mb-0">No documents recorded yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="panel h-100">
+      <div class="panel-head">
+        <div>
+          <h2>Department summary</h2>
+          <p class="sub">From the <span class="mono">v_department_status_summary</span> view</p>
+        </div>
+      </div>
+      <div class="panel-body tight">
+        <div class="table-wrap">
+          <table class="table-modern">
+            <thead>
+              <tr><th>Department</th><th>Total</th><th>Pending</th><th>In progress</th><th>Approved</th><th>Rejected</th><th>Closed</th></tr>
+            </thead>
+            <tbody>
+              {% for row in department_summary %}
+                <tr>
+                  <td>
+                    <div class="doc-title">{{ row.department_name }}</div>
+                    <div class="progress-dark mt-1" style="max-width: 160px;">
+                      <span style="width: {{ ((row.total_documents / max_department_total) * 100)|round(0, 'floor') if max_department_total else 0 }}%"></span>
+                    </div>
+                  </td>
+                  <td><strong>{{ row.total_documents }}</strong></td>
+                  <td>{{ row.pending }}</td>
+                  <td>{{ row.in_progress + row.forwarded }}</td>
+                  <td>{{ row.approved }}</td>
+                  <td>{{ row.rejected }}</td>
+                  <td>{{ row.closed }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-xl-7">
+    <div class="panel h-100">
+      <div class="panel-head">
+        <div>
+          <h2>Pending documents</h2>
+          <p class="sub">From the <span class="mono">v_pending_documents</span> view · pending days via <span class="mono">fn_pending_days()</span></p>
+        </div>
+      </div>
+      <div class="panel-body tight">
+        {% if pending_documents %}
+          <div class="table-wrap">
+            <table class="table-modern">
+              <thead><tr><th>Document</th><th>Department</th><th>Assigned</th><th>Status</th><th>Pending days</th></tr></thead>
+              <tbody>
+                {% for row in pending_documents %}
+                  <tr>
+                    <td>
+                      <a class="row-link" href="{{ url_for('documents.detail', document_id=row.document_id) }}">{{ row.title }}</a>
+                      <div class="doc-meta mono">{{ row.document_number }}</div>
+                    </td>
+                    <td>{{ row.current_department or '—' }}</td>
+                    <td class="muted">{{ row.assigned_employee or 'Unassigned' }}</td>
+                    <td><span class="badge-soft-{{ {'Submitted':'gray','Pending':'yellow','In Progress':'blue','Forwarded':'purple'}.get(row.status, 'gray') }}">{{ row.status }}</span></td>
+                    <td><strong>{{ row.pending_days }}</strong> day{{ '' if row.pending_days == 1 else 's' }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state py-4"><h4>Nothing pending</h4><p class="mb-0">All documents have been decided or closed.</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-5 d-grid gap-3">
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Overdue documents</h2>
+          <p class="sub">Open documents past their due date</p>
+        </div>
+        <span class="badge-soft-red">{{ overdue_documents|length }}</span>
+      </div>
+      <div class="panel-body tight">
+        {% if overdue_documents %}
+          <div class="table-wrap">
+            <table class="table-modern">
+              <thead><tr><th>Document</th><th>Due</th><th>Overdue</th></tr></thead>
+              <tbody>
+                {% for row in overdue_documents %}
+                  <tr>
+                    <td>
+                      <a class="row-link" href="{{ url_for('documents.detail', document_id=row.document_id) }}">{{ row.title }}</a>
+                      <div class="doc-meta mono">{{ row.document_number }}</div>
+                    </td>
+                    <td class="muted">{{ row.due_date|nice_date }}</td>
+                    <td><span class="badge-soft-red">{{ row.days_overdue }} d</span></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state py-4"><h4>No overdue documents</h4><p class="mb-0">Everything is within its due date.</p></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Recently completed</h2></div>
+      <div class="panel-body tight">
+        {% if recently_completed %}
+          <div class="table-wrap">
+            <table class="table-modern">
+              <thead><tr><th>Document</th><th>Status</th><th>Completed</th></tr></thead>
+              <tbody>
+                {% for row in recently_completed %}
+                  <tr>
+                    <td>
+                      <a class="row-link" href="{{ url_for('documents.detail', document_id=row.document_id) }}">{{ row.title }}</a>
+                      <div class="doc-meta mono">{{ row.document_number }}</div>
+                    </td>
+                    <td><span class="badge-soft-{{ 'green' if row.status == 'Approved' else 'dark' }}">{{ row.status }}</span></td>
+                    <td class="muted">{{ row.updated_at|nice_date }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state py-4"><h4>No completed documents yet</h4><p class="mb-0">Approved and closed documents appear here.</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

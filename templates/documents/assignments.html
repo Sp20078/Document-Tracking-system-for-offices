@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, priority_badge, document_icon %}
+{% block title %}My Assignments{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>My Assignments</h1>
+    <p>Documents currently assigned to you · {{ documents|length }} open item{{ '' if documents|length == 1 else 's' }}</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft" href="{{ url_for('tracking.index') }}"><i class="bi bi-clock-history"></i> My history</a>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-body tight">
+    {% if documents %}
+      <div class="table-wrap">
+        <table class="table-modern">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Department</th>
+              <th>Priority</th>
+              <th>Submitted</th>
+              <th>Due</th>
+              <th>Status</th>
+              <th class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for doc in documents %}
+              <tr>
+                <td>
+                  <div class="doc-cell">
+                    {{ document_icon(doc.type_name) }}
+                    <div>
+                      <a class="row-link" href="{{ url_for('documents.detail', document_id=doc.document_id) }}">{{ doc.title }}</a>
+                      <div class="doc-meta"><span class="mono">{{ doc.document_number }}</span><span class="sep">·</span>{{ doc.type_name }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ doc.department_name or '—' }}</td>
+                <td>{{ priority_badge(doc.priority) }}</td>
+                <td class="muted">{{ doc.submission_date|nice_date }}</td>
+                <td class="muted">
+                  {% if doc.due_date %}
+                    {{ doc.due_date|nice_date }}
+                    {% if doc.is_overdue %}<span class="badge-soft-red ms-1">Overdue</span>{% endif %}
+                  {% else %}—{% endif %}
+                </td>
+                <td>{{ status_badge(doc.status) }}</td>
+                <td class="text-end">
+                  <a class="btn btn-soft btn-sm" href="{{ url_for('documents.detail', document_id=doc.document_id) }}">Open</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="bi bi-inbox"></i></div>
+        <h4>Nothing assigned to you</h4>
+        <p>When a records officer assigns a document to you, it will appear here with its due date.</p>
+        <a class="btn btn-soft" href="{{ url_for('documents.index') }}">Browse all documents</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

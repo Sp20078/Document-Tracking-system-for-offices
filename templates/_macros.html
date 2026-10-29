@@ -1,0 +1,32 @@
+{# Shared small UI helpers #}
+
+{% macro initials(name) -%}
+  {%- set parts = (name or '?').split() -%}
+  {%- if parts|length > 1 -%}
+    {{ (parts[0][0] + parts[-1][0])|upper }}
+  {%- else -%}
+    {{ parts[0][:2]|upper }}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro status_badge(status) -%}
+  <span class="badge-soft-{{ {'Submitted':'gray','Pending':'yellow','In Progress':'blue',
+    'Forwarded':'purple','Approved':'green','Rejected':'red','Closed':'dark'}.get(status, 'gray') }}">
+    <span class="badge-dot"></span>{{ status }}
+  </span>
+{%- endmacro %}
+
+{% macro priority_badge(priority) -%}
+  <span class="badge-soft-{{ {'Low':'gray','Normal':'blue','High':'yellow','Urgent':'red'}.get(priority, 'gray') }}">
+    {{ priority }}
+  </span>
+{%- endmacro %}
+
+{% macro document_icon(type_name) -%}
+  <span class="doc-icon">
+    <i class="bi bi-{{
+      {'Invoice':'receipt', 'Report':'file-earmark-bar-graph', 'Purchase Request':'cart',
+       'Official Letter':'envelope-paper', 'Application':'clipboard-check'}.get(type_name, 'file-earmark-text')
+    }}"></i>
+  </span>
+{%- endmacro %}

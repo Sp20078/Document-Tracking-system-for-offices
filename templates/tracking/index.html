@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Tracking History{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Tracking History</h1>
+    <p>Permanent audit trail of every document movement (most recent first)</p>
+  </div>
+  <div class="page-actions">
+    <a class="btn btn-soft" href="{{ url_for('documents.index') }}"><i class="bi bi-files"></i> Documents</a>
+  </div>
+</div>
+
+<div class="panel filter-card">
+  <div class="panel-body">
+    <form method="get" action="{{ url_for('tracking.index') }}" class="filter-bar" style="grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(130px, 1fr)) auto;">
+      <div>
+        <label class="form-label">Document</label>
+        <div class="input-icon">
+          <i class="bi bi-search"></i>
+          <input class="form-control" type="search" name="q" value="{{ q }}" placeholder="Number or title…">
+        </div>
+      </div>
+      <div>
+        <label class="form-label">Action</label>
+        <select class="form-select" name="action">
+          <option value="">All actions</option>
+          {% for a in actions %}
+            <option value="{{ a.action }}" {{ 'selected' if action == a.action }}>{{ a.action }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">From</label>
+        <input class="form-control" type="date" name="date_from" value="{{ date_from }}">
+      </div>
+      <div>
+        <label class="form-label">To</label>
+        <input class="form-control" type="date" name="date_to" value="{{ date_to }}">
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit"><i class="bi bi-funnel"></i> Filter</button>
+        <a class="btn btn-soft btn-icon" href="{{ url_for('tracking.index') }}" title="Reset"><i class="bi bi-arrow-counterclockwise"></i></a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <div>
+      <h2>Activity log</h2>
+      <p class="sub">Showing up to 200 of the latest events you may access</p>
+    </div>
+    <span class="badge-soft-gray">{{ events|length }} events</span>
+  </div>
+  <div class="panel-body tight">
+    {% if events %}
+      <div class="table-wrap">
+        <table class="table-modern">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Document</th>
+              <th>Action</th>
+              <th>Performed by</th>
+              <th>Movement</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in events %}
+              <tr>
+                <td class="muted" style="white-space: nowrap;">{{ event.action_timestamp|nice_date }}</td>
+                <td>
+                  <a class="row-link mono" href="{{ url_for('documents.detail', document_id=event.document_id) }}">{{ event.document_number }}</a>
+                  <div class="doc-meta">{{ event.title }}</div>
+                </td>
+                <td><span class="badge-soft-blue">{{ event.action }}</span></td>
+                <td>{{ event.actor_name or 'System' }}</td>
+                <td class="muted">
+                  {% if event.from_department or event.to_department %}
+                    {{ event.from_department or '—' }} <i class="bi bi-arrow-right"></i> {{ event.to_department or '—' }}
+                  {% else %}—{% endif %}
+                  {% if event.to_user_name %}
+                    <div class="doc-meta">to {{ event.to_user_name }}</div>
+                  {% endif %}
+                </td>
+                <td style="max-width: 320px;">{{ event.remarks or '—' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="bi bi-clock-history"></i></div>
+        <h4>No tracking events found</h4>
+        <p>Adjust the filters or register a document to create the first event.</p>
+        <a class="btn btn-soft" href="{{ url_for('tracking.index') }}">Clear filters</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

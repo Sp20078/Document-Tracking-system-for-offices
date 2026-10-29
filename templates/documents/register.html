@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% from "_macros.html" import initials %}
+{% block title %}Register Document{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('documents.index') }}"><i class="bi bi-arrow-left"></i> Back to documents</a>
+
+<div class="page-head">
+  <div>
+    <h1>Register Document</h1>
+    <p>Create a new document record and start its tracking history</p>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="row g-3" novalidate data-loading style="max-width: 1200px;">
+  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+  <div class="col-lg-8">
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Document details</h2>
+          <p class="sub">Fields marked with <span style="color:#ff8f8f">*</span> are required</p>
+        </div>
+      </div>
+      <div class="panel-body d-grid gap-3">
+        <div>
+          <label class="form-label" for="title">Title <span class="req">*</span></label>
+          <input class="form-control {{ 'is-invalid' if errors.title }}" id="title" name="title"
+                 value="{{ form.title }}" maxlength="200" placeholder="e.g. Purchase request for lab equipment" required>
+          {% if errors.title %}<div class="invalid-feedback">{{ errors.title }}</div>{% endif %}
+        </div>
+
+        <div>
+          <label class="form-label" for="description">Description</label>
+          <textarea class="form-control" id="description" name="description" rows="4"
+                    placeholder="Short summary of what the document is about…">{{ form.description }}</textarea>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="document_type_id">Document type <span class="req">*</span></label>
+            <select class="form-select {{ 'is-invalid' if errors.document_type_id }}" id="document_type_id" name="document_type_id" required>
+              <option value="">Choose a type…</option>
+              {% for t in document_types %}
+                <option value="{{ t.document_type_id }}" {{ 'selected' if form.document_type_id|string == t.document_type_id|string }}>{{ t.type_name }}</option>
+              {% endfor %}
+            </select>
+            {% if errors.document_type_id %}<div class="invalid-feedback">{{ errors.document_type_id }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="department_id">Department <span class="req">*</span></label>
+            <select class="form-select {{ 'is-invalid' if errors.department_id }}" id="department_id" name="department_id"
+                    data-department-select required>
+              <option value="">Choose a department…</option>
+              {% for d in departments %}
+                <option value="{{ d.department_id }}" {{ 'selected' if form.department_id|string == d.department_id|string }}>{{ d.department_name }}</option>
+              {% endfor %}
+            </select>
+            {% if errors.department_id %}<div class="invalid-feedback">{{ errors.department_id }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="submission_date">Submission date <span class="req">*</span></label>
+            <input class="form-control {{ 'is-invalid' if errors.submission_date }}" id="submission_date" name="submission_date"
+                   type="date" value="{{ form.submission_date }}" required>
+            {% if errors.submission_date %}<div class="invalid-feedback">{{ errors.submission_date }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="due_date">Due date</label>
+            <input class="form-control {{ 'is-invalid' if errors.due_date }}" id="due_date" name="due_date"
+                   type="date" value="{{ form.due_date }}">
+            {% if errors.due_date %}<div class="invalid-feedback">{{ errors.due_date }}</div>{% endif %}
+            <div class="form-text">Optional. Cannot be earlier than the submission date.</div>
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="priority">Priority <span class="req">*</span></label>
+            <select class="form-select {{ 'is-invalid' if errors.priority }}" id="priority" name="priority">
+              {% for p in priorities %}
+                <option value="{{ p }}" {{ 'selected' if form.priority == p }}>{{ p }}</option>
+              {% endfor %}
+            </select>
+            {% if errors.priority %}<div class="invalid-feedback">{{ errors.priority }}</div>{% endif %}
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="assigned_to">Assign to employee</label>
+            <select class="form-select {{ 'is-invalid' if errors.assigned_to }}" id="assigned_to" name="assigned_to"
+                    data-assignee-select>
+              <option value="">Leave unassigned</option>
+              {% for u in assignees %}
+                <option value="{{ u.user_id }}" data-department="{{ u.department_id or '' }}"
+                        {{ 'selected' if form.assigned_to|string == u.user_id|string }}>
+                  {{ u.full_name }}{% if u.department_id %} · {{ u.role|replace('_', ' ')|title }}{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            {% if errors.assigned_to %}<div class="invalid-feedback">{{ errors.assigned_to }}</div>{% endif %}
+            <div class="form-text">Optional. The list follows the selected department.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="panel mb-3">
+      <div class="panel-head">
+        <h2>Attachment</h2>
+      </div>
+      <div class="panel-body">
+        <label class="form-label" for="attachment">Upload a file</label>
+        <input class="form-control {{ 'is-invalid' if errors.attachment }}" id="attachment" name="attachment" type="file"
+               accept=".pdf,.png,.jpg,.jpeg,.docx">
+        {% if errors.attachment %}<div class="invalid-feedback">{{ errors.attachment }}</div>{% endif %}
+        <div class="form-text mt-2">PDF, PNG, JPG, JPEG or DOCX · up to 5 MB. Files are stored outside the public folder.</div>
+      </div>
+    </div>
+
+    <div class="panel mb-3">
+      <div class="panel-head">
+        <h2>What happens next?</h2>
+      </div>
+      <div class="panel-body">
+        <ol class="text-secondary small ps-3 mb-0 d-grid gap-2">
+          <li>The document is saved with an automatic number (<span class="mono">DOC-{{ today[:4] }}-0001</span>).</li>
+          <li>A <strong>Document registered</strong> tracking event is created.</li>
+          <li>You can then assign it, forward it, or send it for approval.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-body d-flex align-items-center gap-2">
+        <span class="avatar avatar-sm">{{ initials(current_user.full_name) }}</span>
+        <div>
+          <div class="doc-title" style="font-size:12.8px;">Registered by {{ current_user.full_name }}</div>
+          <div class="doc-meta">{{ role_labels[current_user.role] }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 d-flex flex-wrap gap-2">
+    <button class="btn btn-primary" type="submit"><i class="bi bi-check2"></i> Register document</button>
+    <a class="btn btn-soft" href="{{ url_for('documents.index') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

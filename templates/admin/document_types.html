@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Document Types{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Document Types</h1>
+    <p>Categories used when registering a document</p>
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-4">
+    <div class="panel">
+      <div class="panel-head"><h2>Add type</h2></div>
+      <div class="panel-body">
+        <form method="post" action="{{ url_for('admin.create_document_type') }}" class="d-grid gap-3" data-loading>
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <div>
+            <label class="form-label" for="type_name">Name <span class="req">*</span></label>
+            <input class="form-control" id="type_name" name="type_name" required maxlength="120"
+                   placeholder="e.g. Memorandum">
+          </div>
+          <div>
+            <label class="form-label" for="description">Description</label>
+            <textarea class="form-control" id="description" name="description" rows="3"
+                      placeholder="When this type should be used"></textarea>
+          </div>
+          <button class="btn btn-primary" type="submit"><i class="bi bi-plus-lg"></i> Create type</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-8">
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Existing types</h2>
+          <p class="sub">{{ document_types|length }} record{{ '' if document_types|length == 1 else 's' }}</p>
+        </div>
+      </div>
+      <div class="panel-body tight">
+        <div class="table-wrap">
+          <table class="table-modern">
+            <thead><tr><th>Type</th><th>Documents</th><th class="text-end">Edit</th></tr></thead>
+            <tbody>
+              {% for type in document_types %}
+                <tr>
+                  <td>
+                    <div class="doc-title">{{ type.type_name }}</div>
+                    <div class="doc-meta">{{ type.description or 'No description' }}</div>
+                  </td>
+                  <td>{{ type.document_count }}</td>
+                  <td class="text-end">
+                    <button class="btn btn-soft btn-sm" data-bs-toggle="modal" data-bs-target="#type{{ type.document_type_id }}">
+                      <i class="bi bi-pencil"></i> Edit
+                    </button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% for type in document_types %}
+  <div class="modal fade" id="type{{ type.document_type_id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <form class="modal-content" method="post" action="{{ url_for('admin.edit_document_type', type_id=type.document_type_id) }}" data-loading>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit document type</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body d-grid gap-3">
+          <div>
+            <label class="form-label" for="tname{{ type.document_type_id }}">Name <span class="req">*</span></label>
+            <input class="form-control" id="tname{{ type.document_type_id }}" name="type_name"
+                   value="{{ type.type_name }}" required maxlength="120">
+          </div>
+          <div>
+            <label class="form-label" for="tdesc{{ type.document_type_id }}">Description</label>
+            <textarea class="form-control" id="tdesc{{ type.document_type_id }}" name="description" rows="3">{{ type.description or '' }}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{% endfor %}
+{% endblock %}

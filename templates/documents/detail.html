@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, priority_badge, initials %}
+{% block title %}{{ doc.document_number }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('documents.index') }}"><i class="bi bi-arrow-left"></i> Back to documents</a>
+
+{% if doc.archived %}
+  <div class="alert alert-info mb-3">
+    <i class="bi bi-archive"></i>
+    <div>This document is archived and read-only. Its tracking history and attachments are kept for audit purposes.</div>
+  </div>
+{% endif %}
+
+<div class="page-head">
+  <div>
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+      <span class="mono text-secondary">{{ doc.document_number }}</span>
+      {{ status_badge(doc.status) }}
+      {{ priority_badge(doc.priority) }}
+      {% if doc.due_date %}
+        <span class="badge-soft-gray"><i class="bi bi-calendar-event"></i> Due {{ doc.due_date|nice_date }}</span>
+      {% endif %}
+    </div>
+    <h1 style="font-size: 22px;">{{ doc.title }}</h1>
+    <p>{{ doc.type_name }} · {{ doc.department_name or 'No department' }}</p>
+  </div>
+  <div class="page-actions">
+    {% if actions.assign %}
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignModal">
+        <i class="bi bi-person-check"></i> Assign
+      </button>
+    {% endif %}
+    {% if actions.forward %}
+      <button class="btn btn-soft" data-bs-toggle="modal" data-bs-target="#forwardModal">
+        <i class="bi bi-send"></i> Forward
+      </button>
+    {% endif %}
+    {% if actions.submit_for_approval %}
+      <button class="btn btn-soft" data-bs-toggle="modal" data-bs-target="#approvalModal">
+        <i class="bi bi-patch-check"></i> Send for approval
+      </button>
+    {% endif %}
+    {% if actions.close %}
+      <form method="post" action="{{ url_for('documents.close', document_id=doc.document_id) }}"
+            data-confirm="Close {{ doc.document_number }}? No further workflow actions will be possible." data-loading>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-success-soft" type="submit"><i class="bi bi-check2-square"></i> Close</button>
+      </form>
+    {% endif %}
+    {% if actions.archive %}
+      <form method="post" action="{{ url_for('documents.archive', document_id=doc.document_id) }}"
+            data-confirm="Archive {{ doc.document_number }}? Archived documents become read-only." data-loading>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-soft" type="submit"><i class="bi bi-archive"></i> Archive</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-xl-8">
+    <!-- Description -->
+    <div class="panel mb-3">
+      <div class="panel-head"><h2>Description</h2></div>
+      <div class="panel-body">
+        {% if doc.description %}
+          <p class="mb-0" style="white-space: pre-line; color: var(--text-dim); font-size: 13.6px;">{{ doc.description }}</p>
+        {% else %}
+          <p class="text-secondary small mb-0">No description was provided for this document.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tracking -->
+    <div class="panel mb-3">
+      <div class="panel-head">
+        <div>
+          <h2>Tracking history</h2>
+          <p class="sub">{{ tracking|length }} recorded event{{ '' if tracking|length == 1 else 's' }} · oldest first</p>
+        </div>
+        <a class="btn btn-soft btn-sm" href="{{ url_for('tracking.index', q=doc.document_number) }}">Open log</a>
+      </div>
+      <div class="panel-body">
+        {% if tracking %}
+          <div class="timeline">
+            {% for event in tracking %}
+              <div class="timeline-item {{ 'is-approved' if event.action == 'Document approved' }} {{ 'is-rejected' if event.action == 'Document rejected' }} {{ 'is-forwarded' if event.action in ['Document forwarded'] }}">
+                <div class="timeline-title">
+                  {{ event.action }}
+                  {% if event.from_department and event.to_department and event.from_department != event.to_department %}
+                    <span class="badge-soft-gray">{{ event.from_department }} → {{ event.to_department }}</span>
+                  {% elif event.to_department and event.action in ['Document assigned', 'Document forwarded'] %}
+                    <span class="badge-soft-gray">→ {{ event.to_department }}</span>
+                  {% endif %}
+                </div>
+                <div class="timeline-meta">
+                  {{ event.actor_name or 'System' }} · {{ event.action_timestamp|nice_date }}
+                  {% if event.to_user_name %} · to {{ event.to_user_name }}{% endif %}
+                </div>
+                {% if event.remarks %}
+                  <div class="timeline-remarks">{{ event.remarks }}</div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-secondary small mb-0">No tracking events yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Attachments -->
+    <div class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Attachments</h2>
+          <p class="sub">Files are stored privately and only shared with authorised users</p>
+        </div>
+        <span class="badge-soft-gray">{{ attachments|length }}</span>
+      </div>
+      <div class="panel-body">
+        {% if attachments %}
+          <div class="mb-3">
+            {% for file in attachments %}
+              <div class="attachment-row">
+                <span class="doc-icon"><i class="bi bi-file-earmark-arrow-down"></i></span>
+                <div class="flex-grow-1 min-w-0">
+                  <div class="attachment-name">{{ file.original_filename }}</div>
+                  <div class="attachment-meta">
+                    {{ (file.file_size / 1024)|round(1) }} KB · uploaded by {{ file.uploader_name }} · {{ file.uploaded_at|nice_date }}
+                  </div>
+                </div>
+                <a class="btn btn-soft btn-sm" href="{{ url_for('documents.download_attachment', attachment_id=file.attachment_id) }}">
+                  <i class="bi bi-download"></i> Download
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-secondary small mb-3">No files attached to this document.</p>
+        {% endif %}
+
+        {% if actions.attach %}
+          <form method="post" action="{{ url_for('documents.upload_attachment', document_id=doc.document_id) }}"
+                enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-end" data-loading>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="flex-grow-1" style="min-width: 220px;">
+              <label class="form-label" for="attachment">Add a file (PDF, PNG, JPG, DOCX · max 5 MB)</label>
+              <input class="form-control" id="attachment" name="attachment" type="file" required
+                     accept=".pdf,.png,.jpg,.jpeg,.docx">
+            </div>
+            <button class="btn btn-soft" type="submit"><i class="bi bi-upload"></i> Upload</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-4">
+    <!-- Details -->
+    <div class="panel mb-3">
+      <div class="panel-head"><h2>Document details</h2></div>
+      <div class="panel-body">
+        <div class="kv-grid" style="grid-template-columns: 1fr;">
+          <div>
+            <div class="kv-label">Document number</div>
+            <div class="kv-value mono">{{ doc.document_number }}</div>
+          </div>
+          <div>
+            <div class="kv-label">Type</div>
+            <div class="kv-value">{{ doc.type_name }}</div>
+          </div>
+          <div>
+            <div class="kv-label">Current department</div>
+            <div class="kv-value">{{ doc.department_name or '—' }}</div>
+          </div>
+          <div>
+            <div class="kv-label">Assigned employee</div>
+            <div class="kv-value {{ 'muted' if not doc.assignee_name }}">{{ doc.assignee_name or 'Unassigned' }}</div>
+          </div>
+          <div>
+            <div class="kv-label">Registered by</div>
+            <div class="kv-value">{{ doc.submitter_name }}</div>
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <div class="kv-label">Submission date</div>
+              <div class="kv-value">{{ doc.submission_date|nice_date }}</div>
+            </div>
+            <div class="col-6">
+              <div class="kv-label">Due date</div>
+              <div class="kv-value {{ 'muted' if not doc.due_date }}">{{ doc.due_date|nice_date }}</div>
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-6">
+              <div class="kv-label">Priority</div>
+              <div class="kv-value">{{ priority_badge(doc.priority) }}</div>
+            </div>
+            <div class="col-6">
+              <div class="kv-label">Status</div>
+              <div class="kv-value">{{ status_badge(doc.status) }}</div>
+            </div>
+          </div>
+          <div>
+            <div class="kv-label">Last updated</div>
+            <div class="kv-value muted">{{ doc.updated_at|nice_date }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Approvals -->
+    <div class="panel mb-3">
+      <div class="panel-head">
+        <div>
+          <h2>Approval</h2>
+          <p class="sub">{{ approvals|length }} decision record{{ '' if approvals|length == 1 else 's' }}</p>
+        </div>
+      </div>
+      <div class="panel-body">
+        {% if approvals %}
+          <div class="d-grid gap-3 mb-3">
+            {% for approval in approvals %}
+              <div>
+                <div class="d-flex justify-content-between align-items-center gap-2">
+                  <span class="doc-title" style="font-size: 13px;">{{ approval.approver_name }}</span>
+                  <span class="badge-soft-{{ {'pending':'yellow','approved':'green','rejected':'red'}[approval.decision] }}">{{ approval.decision|title }}</span>
+                </div>
+                <div class="doc-meta">
+                  Requested {{ approval.created_at|nice_date }}
+                  {% if approval.decision_timestamp %} · decided {{ approval.decision_timestamp|nice_date }}{% endif %}
+                </div>
+                {% if approval.remarks %}<div class="timeline-remarks">{{ approval.remarks }}</div>{% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-secondary small">This document has not been sent for approval yet.</p>
+        {% endif %}
+
+        {% if actions.decide and pending_approval %}
+          <div class="d-flex gap-2">
+            <button class="btn btn-success-soft flex-grow-1 justify-content-center" data-bs-toggle="modal" data-bs-target="#approveModal">
+              <i class="bi bi-check2"></i> Approve
+            </button>
+            <button class="btn btn-danger-soft flex-grow-1 justify-content-center" data-bs-toggle="modal" data-bs-target="#rejectModal">
+              <i class="bi bi-x"></i> Reject
+            </button>
+          </div>
+        {% elif pending_approval %}
+          <div class="alert alert-warning mb-0">
+            <i class="bi bi-hourglass-split"></i>
+            <div>Waiting for {{ pending_approval.approver_name }} to decide.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Remarks -->
+    {% if actions.remarks %}
+      <div class="panel">
+        <div class="panel-head"><h2>Add a remark</h2></div>
+        <div class="panel-body">
+          <form method="post" action="{{ url_for('documents.add_remarks', document_id=doc.document_id) }}" data-loading>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label class="form-label" for="remarks">Remark for the tracking history</label>
+            <textarea class="form-control mb-2" id="remarks" name="remarks" rows="3" required
+                      placeholder="e.g. Original invoice received from supplier"></textarea>
+            <button class="btn btn-soft w-100 justify-content-center" type="submit">
+              <i class="bi bi-chat-left-text"></i> Save remark
+            </button>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ------------------------------- Modals ------------------------------- #}
+{% if actions.assign %}
+<div class="modal fade" id="assignModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="{{ url_for('documents.assign', document_id=doc.document_id) }}" data-loading>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Assign {{ doc.document_number }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" for="assigned_to">Employee</label>
+        <select class="form-select mb-3" id="assigned_to" name="assigned_to" required>
+          <option value="">Choose an employee…</option>
+          {% for u in forward_users %}
+            <option value="{{ u.user_id }}">{{ u.full_name }}{% if u.department_id %} · dept #{{ u.department_id }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <label class="form-label" for="assign_remarks">Remarks</label>
+        <textarea class="form-control" id="assign_remarks" name="remarks" rows="2"
+                  placeholder="Optional instructions for the assignee"></textarea>
+        <div class="form-text mt-2">The document moves to the employee's department and becomes <strong>In Progress</strong>.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-person-check"></i> Assign</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if actions.forward %}
+<div class="modal fade" id="forwardModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="{{ url_for('documents.forward', document_id=doc.document_id) }}" data-loading>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Forward {{ doc.document_number }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" for="to_user_id">Forward to employee</label>
+        <select class="form-select mb-3" id="to_user_id" name="to_user_id">
+          <option value="">Any employee in the department below</option>
+          {% for u in forward_users %}
+            <option value="{{ u.user_id }}">{{ u.full_name }}</option>
+          {% endfor %}
+        </select>
+        <label class="form-label" for="to_department_id">Department</label>
+        <select class="form-select mb-3" id="to_department_id" name="to_department_id">
+          <option value="">Keep current department</option>
+          {% for d in departments %}
+            <option value="{{ d.department_id }}">{{ d.department_name }}</option>
+          {% endfor %}
+        </select>
+        <label class="form-label" for="forward_remarks">Remarks</label>
+        <textarea class="form-control" id="forward_remarks" name="remarks" rows="2"
+                  placeholder="Why is the document being forwarded?"></textarea>
+        <div class="form-text mt-2">The status becomes <strong>Forwarded</strong> and a tracking event is recorded.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i> Forward</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if actions.submit_for_approval %}
+<div class="modal fade" id="approvalModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="{{ url_for('documents.submit_for_approval', document_id=doc.document_id) }}" data-loading>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-header">
+        <h5 class="modal-title">Send for approval</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" for="approver_id">Approver</label>
+        <select class="form-select mb-3" id="approver_id" name="approver_id" required>
+          <option value="">Choose a manager or administrator…</option>
+          {% for a in approvers %}
+            <option value="{{ a.user_id }}">{{ a.full_name }}</option>
+          {% endfor %}
+        </select>
+        <label class="form-label" for="approval_remarks">Note for the approver</label>
+        <textarea class="form-control" id="approval_remarks" name="remarks" rows="2"
+                  placeholder="Optional context for the decision"></textarea>
+        <div class="form-text mt-2">The status becomes <strong>Pending</strong> and the approver gets a pending request.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-patch-check"></i> Send</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% if actions.decide and pending_approval %}
+<div class="modal fade" id="approveModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="{{ url_for('approvals.decide', approval_id=pending_approval.approval_id) }}" data-loading>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="decision" value="approved">
+      <div class="modal-header">
+        <h5 class="modal-title">Approve {{ doc.document_number }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" for="approve_remarks">Remarks</label>
+        <textarea class="form-control" id="approve_remarks" name="remarks" rows="3"
+                  placeholder="Optional comment for the audit trail"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-success-soft"><i class="bi bi-check2-circle"></i> Approve document</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="post" action="{{ url_for('approvals.decide', approval_id=pending_approval.approval_id) }}" data-loading>
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="decision" value="rejected">
+      <div class="modal-header">
+        <h5 class="modal-title">Reject {{ doc.document_number }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" for="reject_remarks">Reason for rejection <span class="req">*</span></label>
+        <textarea class="form-control" id="reject_remarks" name="remarks" rows="3" required
+                  placeholder="Explain what must be corrected before resubmission"></textarea>
+        <div class="form-text mt-2">Remarks are mandatory and are stored with the decision.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-soft" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-danger-soft"><i class="bi bi-x-circle"></i> Reject document</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
